@@ -2,6 +2,7 @@ package webserver;
 
 import java.io.*;
 import java.net.Socket;
+import java.nio.file.Files;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,18 +25,28 @@ public class RequestHandler extends Thread {
             BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"));
             String line = br.readLine();
             log.debug("start line : {}", line);
+
+            String url = getUrl(line);
+            log.debug(url);
+
             while (!line.equals("")) {
+                if (line == null) break;
+
                 line = br.readLine();
                 log.debug("header : {}", line);
             }
-
             DataOutputStream dos = new DataOutputStream(out);
-            byte[] body = "Hello World".getBytes();
+            byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
             response200Header(dos, body.length);
             responseBody(dos, body);
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+
+    private String getUrl(String line) {
+        String[] tokens = line.split(" ");
+        return tokens[1];
     }
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
