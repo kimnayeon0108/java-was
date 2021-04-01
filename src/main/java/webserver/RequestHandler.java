@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 
+import db.DataBase;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,10 +52,32 @@ public class RequestHandler extends Thread {
                 log.debug("Request Body : {}", requestBody);
                 Map<String, String> params = HttpRequestUtils.parseQueryString(requestBody);
                 User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
+                DataBase.addUser(user);
                 log.debug("User : {}", user.toString());
 
                 DataOutputStream dos = new DataOutputStream(out);
                 response302Header(dos);
+            } else if (url.equals("/user/login")) {
+                String requestBody = IOUtils.readData(br, Integer.parseInt(headers.get("Content-Length")));
+                log.debug("Request Body : {}", requestBody);
+                Map<String, String> params = HttpRequestUtils.parseQueryString(requestBody);
+                log.debug("userId : {}, password : {}", params.get("userId"), params.get("password"));
+
+                User user = DataBase.findUserById(params.get("userId"));
+                if (user == null) {
+                    log.debug("User Not Found!");
+
+                    DataOutputStream dos = new DataOutputStream(out);
+                    response302HeaderWithCookie(dos, "loggedin=fail");
+                }
+                if (user.getPassword().equals(params.get("password"))) {
+                    log.debug("Login Success!!");
+
+                    DataOutputStream dos = new DataOutputStream(out);
+                    response302HeaderWithCookie(dos, "loggedin=true");
+                } else {
+                    log.debug("Password Mismatch!!");
+                }
             } else {
                 DataOutputStream dos = new DataOutputStream(out);
                 byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
@@ -65,6 +88,19 @@ public class RequestHandler extends Thread {
             log.error(e.getMessage());
         }
     }
+
+
+    private void response302HeaderWithCookie(DataOutputStream dos, String cookie) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            dos.writeBytes("Location: /index.html\r\n");
+            dos.writeBytes("Set-Cookie: " + cookie + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
 
     private void response302Header(DataOutputStream dos) {
         try {
